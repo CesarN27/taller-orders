@@ -1,0 +1,2 @@
+corsOrigins: http://localhost:3000
+jwtSecret: local-secret   # igual que el de Gateway y Users (solo pruebas locales)

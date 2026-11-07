@@ -1,0 +1,28 @@
+{
+  "name": "taller-orders",
+  "version": "1.0.0",
+  "description": "Módulo de órdenes (crear, consultar, confirmar y cancelar) para Amazon Lite",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "deploy:local": "serverless deploy --stage local --aws-profile taller-local",
+    "remove:local": "serverless remove --stage local --aws-profile taller-local",
+    "deploy:dev": "serverless deploy --stage develop",
+    "remove:dev": "serverless remove --stage develop",
+    "deploy:prod": "serverless deploy --stage prod",
+    "remove:prod": "serverless remove --stage prod"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.700.0",
+    "@aws-sdk/client-lambda": "^3.700.0",
+    "@aws-sdk/lib-dynamodb": "^3.700.0",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^22.10.0",
+    "serverless": "^4.0.0",
+    "serverless-localstack": "^1.2.1",
+    "typescript": "^5.7.0"
+  }
+}

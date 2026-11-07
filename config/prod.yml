@@ -1,0 +1,4 @@
+# En prod solo el dominio real del frontend (NUNCA localhost)
+corsOrigins: https://CAMBIA-ESTE-DOMINIO.com
+# En AWS el authorizer del Gateway valida el token; esta variable no se usa (se deja vacía)
+jwtSecret: ''

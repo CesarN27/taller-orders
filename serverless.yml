@@ -1,0 +1,136 @@
+service: taller-orders
+frameworkVersion: '4'
+
+plugins:
+  - serverless-localstack
+
+custom:
+  config: ${file(./config/${sls:stage}.yml)}
+  authorizer:
+    type: CUSTOM
+    authorizerId:
+      Fn::ImportValue: taller-${sls:stage}-main-authorizer-id
+  localstack:
+    stages:
+      - local
+    host: http://localhost
+    edgePort: 4566
+    autostart: false
+
+provider:
+  name: aws
+  runtime: nodejs22.x
+  stage: ${opt:stage, 'develop'}
+  region: us-east-1
+  # Orders invoca lambdas de Products: en LocalStack el primer arranque tarda
+  timeout: 25
+  apiGateway:
+    restApiId:
+      Fn::ImportValue: taller-${sls:stage}-main-rest-api-id
+    restApiRootResourceId:
+      Fn::ImportValue: taller-${sls:stage}-main-root-resource-id
+  environment:
+    STAGE: ${sls:stage}
+    ORDERS_TABLE: !Ref OrdersTable
+    CORS_ORIGINS: ${self:custom.config.corsOrigins}
+    # Solo se usa en el stage local (LocalStack no ejecuta el authorizer); en AWS va vacío
+    JWT_SECRET: ${self:custom.config.jwtSecret}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+          Resource:
+            - !GetAtt OrdersTable.Arn
+            - !Join ['/', [!GetAtt OrdersTable.Arn, 'index/*']]
+        # permiso para invocar las lambdas de Products
+        - Effect: Allow
+          Action:
+            - lambda:InvokeFunction
+          Resource:
+            - !Join
+              - ':'
+              - - 'arn:aws:lambda'
+                - !Ref 'AWS::Region'
+                - !Ref 'AWS::AccountId'
+                - 'function'
+                - 'taller-${sls:stage}-products-*'
+
+functions:
+  createOrder:
+    handler: src/handlers/orders/create-order.createOrder
+    name: taller-${sls:stage}-orders-createOrder
+    events:
+      - http:
+          path: orders
+          method: post
+          cors: true
+          authorizer: ${self:custom.authorizer}
+
+  getOrder:
+    handler: src/handlers/orders/get-order.getOrder
+    name: taller-${sls:stage}-orders-getOrder
+    events:
+      - http:
+          path: orders/{id}
+          method: get
+          cors: true
+          authorizer: ${self:custom.authorizer}
+
+  listOrdersByUserId:
+    handler: src/handlers/orders/list-orders-by-user-id.listOrdersByUserId
+    name: taller-${sls:stage}-orders-listOrdersByUserId
+    events:
+      - http:
+          path: orders/user/{userId}
+          method: get
+          cors: true
+          authorizer: ${self:custom.authorizer}
+
+  confirmOrder:
+    handler: src/handlers/orders/confirm-order.confirmOrder
+    name: taller-${sls:stage}-orders-confirmOrder
+    events:
+      - http:
+          path: orders/{id}/confirm
+          method: post
+          cors: true
+          authorizer: ${self:custom.authorizer}
+
+  cancelOrder:
+    handler: src/handlers/orders/cancel-order.cancelOrder
+    name: taller-${sls:stage}-orders-cancelOrder
+    events:
+      - http:
+          path: orders/{id}/cancel
+          method: post
+          cors: true
+          authorizer: ${self:custom.authorizer}
+
+resources:
+  Resources:
+    OrdersTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: taller-${sls:stage}-orders
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: orderId
+            AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+        KeySchema:
+          - AttributeName: orderId
+            KeyType: HASH
+        GlobalSecondaryIndexes:
+          - IndexName: UserOrdersIndex
+            KeySchema:
+              - AttributeName: userId
+                KeyType: HASH
+            Projection:
+              ProjectionType: ALL
